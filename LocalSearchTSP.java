@@ -4,8 +4,8 @@ import java.util.*;
 public class LocalSearchTSP {
 
     public static void main(String[] args) throws IOException {
-        String[] inputFiles = {"tsp1.txt", "tsp2.txt", "tsp3.txt", "tsp4.txt"};
-        String[] outputFiles = {"out_tsp1.txt", "out_tsp2.txt", "out_tsp3.txt", "out_tsp4.txt"};
+        String[] inputFiles = {"tsp1.txt", "tsp2.txt", "tsp3.txt", "tsp4.txt","tsp5.txt"};
+        String[] outputFiles = {"out_tsp1.txt", "out_tsp2.txt", "out_tsp3.txt", "out_tsp4.txt","out_tsp5.txt"};
 
         for (int i = 0; i < inputFiles.length; i++) {
             long startTime = System.currentTimeMillis();
@@ -34,21 +34,42 @@ public class LocalSearchTSP {
 
     static int[] findBestTour(int[][] distance) {
         int n = distance.length;
-        int[] bestTour = null;
-        int bestCost = Integer.MAX_VALUE;
+        int[] globalBestTour = null;
+        int globalBestCost = Integer.MAX_VALUE;
 
-        // Try multiple starting points to find the best solution
-        for (int startCity = 0; startCity < Math.min(n, 10); startCity++) {
+        // Run local search 10 times with different starting solutions
+        for (int iteration = 0; iteration < 100; iteration++) {
+            // Generate initial solution using nearest neighbor
+            int startCity = iteration % n;
             int[] currentTour = nearestNeighbor(distance, startCity);
             int currentCost = calculateTourCost(currentTour, distance);
             
-            if (currentCost < bestCost) {
-                bestCost = currentCost;
-                bestTour = currentTour;
+            // Apply 2-opt local search improvement
+            boolean improved;
+            do {
+                improved = false;
+                for (int i = 0; i < n - 1; i++) {
+                    for (int j = i + 1; j < n; j++) {
+                        int[] newTour = twoOptSwap(currentTour, i, j);
+                        int newCost = calculateTourCost(newTour, distance);
+                        
+                        if (newCost < currentCost) {
+                            currentTour = newTour;
+                            currentCost = newCost;
+                            improved = true;
+                        }
+                    }
+                }
+            } while (improved);
+
+            // Update global best if current solution is better
+            if (currentCost < globalBestCost) {
+                globalBestCost = currentCost;
+                globalBestTour = currentTour.clone();
             }
         }
 
-        return bestTour;
+        return globalBestTour;
     }
 
     static int[] nearestNeighbor(int[][] distance, int startCity) {
@@ -93,12 +114,27 @@ public class LocalSearchTSP {
     static void saveTour(String fileName, int[] tour, int cost, long executionTime) throws IOException {
         PrintWriter out = new PrintWriter(new FileWriter(fileName));
         out.println("Total cost: " + cost);
-        out.println("Execution time: " + executionTime + " ms");
+        double minutes = executionTime / (1000.0 * 60); // Convert ms to minutes
+        out.printf("Execution time: %.2f minutes (%.0f ms)%n", minutes, (double)executionTime);
         out.print("Tour: ");
         for (int city : tour) {
             out.print(city + " ");
         }
         out.println();
         out.close();
+    }
+
+    // New method: Perform 2-opt swap between positions i and j
+    static int[] twoOptSwap(int[] tour, int i, int j) {
+        int[] newTour = tour.clone();
+        // Reverse the segment between i and j
+        while (i < j) {
+            int temp = newTour[i];
+            newTour[i] = newTour[j];
+            newTour[j] = temp;
+            i++;
+            j--;
+        }
+        return newTour;
     }
 } 
